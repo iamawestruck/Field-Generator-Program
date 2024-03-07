@@ -8,6 +8,8 @@ import sys
 import matplotlib
 matplotlib.use('Qt5Agg')
 
+
+
 class MplCanvas(FigureCanvasQTAgg):
     fig = None
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -15,36 +17,66 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes = self.fig.add_subplot(111)
         super(MplCanvas, self).__init__(self.fig)
 
-class inputGroupBox(QtWidgets.QWidget):
+class InputGroupBox(QtWidgets.QWidget):
+    mathCommands = {
+        0: "pi",
+        1: "sin",
+        2: "cos",
+        3: "E",
+        4: "+",
+        5: "-",
+        6: "/",
+        7: "*",
+    }
     def __init__(self):
         super().__init__()
         self.layout = QtWidgets.QVBoxLayout(self)
 
-        self.mathButtons = QtWidgets.QWidget()
+        self.mathButtons = QtWidgets.QButtonGroup(self)
+        self.arrowButtons = QtWidgets.QButtonGroup(self)
+
+        self.mathButtonsGroup = QtWidgets.QWidget()
+        self.arrowButtonsGroup = QtWidgets.QWidget()
         self.textBox = QtWidgets.QWidget()
 
-        self.mathButtons.layout = QtWidgets.QHBoxLayout(self.mathButtons)
+        self.mathButtonsGroup.layout = QtWidgets.QHBoxLayout(self.mathButtonsGroup)
+        self.arrowButtonsGroup.layout = QtWidgets.QHBoxLayout(self.arrowButtonsGroup)
         self.textBox.layout = QtWidgets.QHBoxLayout(self.textBox)
 
-        self.button1 = QtWidgets.QPushButton("Pie")
-        self.button2 = QtWidgets.QPushButton("Sign")
-        self.button3 = QtWidgets.QPushButton("Co-sign")
-        self.button4 = QtWidgets.QPushButton("E")
+        for i in range(0,len(self.mathCommands)):
+            mathbutton = QtWidgets.QPushButton(self.mathCommands[i])
+            self.mathButtons.addButton(mathbutton, i)
+            self.mathButtonsGroup.layout.addWidget(mathbutton)
+
+
+            # self.button8 = QtWidgets.QPushButton("*")
+        self.leftButton = QtWidgets.QPushButton("<--")
+        self.rightButton = QtWidgets.QPushButton("-->")
         self.inputbox = QtWidgets.QLineEdit()
 
-        self.mathButtons.layout.addWidget(self.button1)
-        self.mathButtons.layout.addWidget(self.button2)
-        self.mathButtons.layout.addWidget(self.button3)
-        self.mathButtons.layout.addWidget(self.button4)
+
+        # self.mathButtonsGroup.layout.addWidget(self.button1)
+
+        self.arrowButtonsGroup.layout.addWidget(self.leftButton)
+        self.arrowButtonsGroup.layout.addWidget(self.rightButton)
+
         self.textBox.layout.addWidget(self.inputbox)
 
-        self.layout.addWidget(self.mathButtons)
+        self.layout.addWidget(self.mathButtonsGroup)
+        self.layout.addWidget(self.arrowButtonsGroup)
         self.layout.addWidget(self.textBox)
-        #
-        # self.button1.idClicked.connect(lambda i: self.boardNumberedColoredButtonClicked(i+2, "red"))
-        # self.button2.idClicked.connect(lambda i: self.boardNumberedColoredButtonClicked(i+2, "yellow"))
-        # self.button3.idClicked.connect(lambda i: self.boardNumberedColoredButtonClicked(12-i, "green"))
-        # self.button4.idClicked.connect(lambda i: self.boardNumberedColoredButtonClicked(12-i, "blue"))
+
+        #for i in range(0,8):
+        self.mathButtons.idClicked.connect(lambda i :self.addText(i))
+        # self.button1.clicked.connect(lambda: self.addText("pi"))
+
+
+        self.inputbox.returnPressed.connect(lambda: self.close())
+
+    def addText(self, text):
+        self.inputbox.insert(self.mathCommands[text])
+
+    #  def whenEnter(self):
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -55,7 +87,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 
-        widget = inputGroupBox()
+        widget = InputGroupBox()
 
 
         self.setCentralWidget(widget)
@@ -64,4 +96,4 @@ class MainWindow(QtWidgets.QMainWindow):
 
 app = QtWidgets.QApplication(sys.argv)
 w = MainWindow()
-app.exec_()
+app.exec()
