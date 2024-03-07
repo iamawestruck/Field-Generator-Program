@@ -78,6 +78,9 @@ class EquationListWidget(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout()
         self.standardLabelWidget = QtWidgets.QLabel(" dy/dx ")
         self.parametricLabelWidget = QtWidgets.QLabel(" dx/dt  dy/dt ")
+        self.standardLabelWidget.hide()
+        layout.addWidget(self.standardLabelWidget,
+                         alignment=QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.parametricLabelWidget, alignment=QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft)
         self.setLayout(layout)
 
@@ -100,15 +103,40 @@ class EquationListWidget(QtWidgets.QWidget):
         layout.removeWidget(currentEquation)
         self.setLayout(layout)
 
+    def standardHideButtons(self):
+        self.parametricLabelWidget.hide()
+        self.standardLabelWidget.show()
+        for value in self.equationWidgets.values():
+            value.xButton.hide()
+
+    def parametricShowButtons(self):
+        self.standardLabelWidget.hide()
+        self.parametricLabelWidget.show()
+        for value in self.equationWidgets.values():
+            value.xButton.show()
+
+class StandardParametricWidget(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.standardButton = QtWidgets.QPushButton("Standard")
+        self.parametricButton = QtWidgets.QPushButton("Parametric")
+        widgetLayout = QtWidgets.QHBoxLayout()
+        widgetLayout.addWidget(self.standardButton, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        widgetLayout.addWidget(self.parametricButton, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
+        self.setLayout(widgetLayout)
+
+
 
 class EquationListGroupBox(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.equationListWidget = EquationListWidget()
-        self.standardParametricWidget = None
+        self.standardParametricWidget = StandardParametricWidget()
+        self.standardParametricWidget.standardButton.clicked.connect(self.equationListWidget.standardHideButtons)
+        self.standardParametricWidget.parametricButton.clicked.connect(self.equationListWidget.parametricShowButtons)
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.equationListWidget)
-        # layout.addWidget(self.standardParametricWidget)
+        layout.addWidget(self.standardParametricWidget,alignment=QtCore.Qt.AlignmentFlag.AlignBottom)
         self.setLayout(layout)
         self.show()
 
