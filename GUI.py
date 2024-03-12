@@ -16,6 +16,8 @@ class MplCanvas(FigureCanvasQTAgg):
         super(MplCanvas, self).__init__(self.fig)
 
 class InputGroupBox(QtWidgets.QWidget):
+    button = []
+    arrow = 0
     mathCommands = {
         0: "pi",
         1: "sin",
@@ -25,54 +27,78 @@ class InputGroupBox(QtWidgets.QWidget):
         5: "-",
         6: "/",
         7: "*",
+        8: "tan",
+        9: "arctan",
+        10: "arcsin",
+        11: "arccos",
+        12: "^",
+        13: "(",
+        14: ")",
+        15: "%",
     }
+
     def __init__(self):
         super().__init__()
         self.layout = QtWidgets.QVBoxLayout(self)
-
         self.mathButtons = QtWidgets.QButtonGroup(self)
         self.arrowButtons = QtWidgets.QButtonGroup(self)
 
-        self.mathButtonsGroup = QtWidgets.QWidget()
-        self.arrowButtonsGroup = QtWidgets.QWidget()
+        self.mathButtonsWidget = QtWidgets.QWidget()
+        self.arrowButtonsWidget = QtWidgets.QWidget()
         self.textBox = QtWidgets.QWidget()
 
-        self.mathButtonsGroup.layout = QtWidgets.QHBoxLayout(self.mathButtonsGroup)
-        self.arrowButtonsGroup.layout = QtWidgets.QHBoxLayout(self.arrowButtonsGroup)
+        self.mathButtonsWidget.layout = QtWidgets.QHBoxLayout(self.mathButtonsWidget)
+        self.arrowButtonsWidget.layout = QtWidgets.QHBoxLayout(self.arrowButtonsWidget)
         self.textBox.layout = QtWidgets.QHBoxLayout(self.textBox)
 
-        for i in range(0,len(self.mathCommands)):
+        for i in range(0,8):
             mathbutton = QtWidgets.QPushButton(self.mathCommands[i])
+            self.button.append(mathbutton)
             self.mathButtons.addButton(mathbutton, i)
-            self.mathButtonsGroup.layout.addWidget(mathbutton)
-
+            self.mathButtonsWidget.layout.addWidget(mathbutton)
 
             # self.button8 = QtWidgets.QPushButton("*")
         self.leftButton = QtWidgets.QPushButton("<--")
         self.rightButton = QtWidgets.QPushButton("-->")
-        self.inputbox = QtWidgets.QLineEdit()
+        self.inputBox = QtWidgets.QLineEdit()
 
+        # self.mathButtonsWidget.layout.addWidget(self.button1)
+        self.arrowButtonsWidget.layout.addWidget(self.leftButton)
+        self.arrowButtonsWidget.layout.addWidget(self.rightButton)
+        self.textBox.layout.addWidget(self.inputBox)
 
-        # self.mathButtonsGroup.layout.addWidget(self.button1)
-
-        self.arrowButtonsGroup.layout.addWidget(self.leftButton)
-        self.arrowButtonsGroup.layout.addWidget(self.rightButton)
-
-        self.textBox.layout.addWidget(self.inputbox)
-
-        self.layout.addWidget(self.mathButtonsGroup)
-        self.layout.addWidget(self.arrowButtonsGroup)
+        self.layout.addWidget(self.mathButtonsWidget)
+        self.layout.addWidget(self.arrowButtonsWidget)
         self.layout.addWidget(self.textBox)
 
-        #for i in range(0,8):
-        self.mathButtons.idClicked.connect(lambda i :self.addText(i))
-        # self.button1.clicked.connect(lambda: self.addText("pi"))
-
-
-        self.inputbox.returnPressed.connect(lambda: self.close())
+        # for i in range(0,8):
+        self.mathButtons.idClicked.connect(lambda t: self.addText(t))
+        self.leftButton.clicked.connect(lambda: self.shiftCommands(-1))
+        self.rightButton.clicked.connect(lambda: self.shiftCommands(1))
+        self.inputBox.returnPressed.connect(lambda: self.enterData())
 
     def addText(self, text):
-        self.inputbox.insert(self.mathCommands[text])
+        self.inputBox.insert(self.mathCommands[text])
+
+    def shiftCommands(self, movement):
+
+        if movement == 1:
+            self.arrow += 1
+        if movement == -1:
+            self.arrow -= 1
+
+        if self.arrow < 0:
+            self.arrow = 0
+        elif self.arrow > (len(self.mathCommands)/8)-1:
+            self.arrow = (len(self.mathCommands)/8)-1
+        else:
+            for i in range(len(self.button)):
+                self.button[i].setText(self.mathCommands[i + (8 * self.arrow)])
+
+    def enterData(self):
+        self.inputBox
+
+
 
     #  def whenEnter(self):
 
