@@ -8,6 +8,7 @@ import sys
 import matplotlib
 matplotlib.use('Qt5Agg')
 
+
 class MplCanvas(FigureCanvasQTAgg):
     fig = None
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -102,6 +103,7 @@ class InputGroupBox(QtWidgets.QWidget):
 
     #  def whenEnter(self):
 
+
 class EquationWidget(QtWidgets.QWidget):
     def __init__(self, equationString, equationLambda):
         super().__init__()
@@ -129,6 +131,7 @@ class EquationListWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.equationWidgets = {}
+        self.xEquation, self.yEquation = (None, None), (None, None)
         self.xButtonGroup = QtWidgets.QButtonGroup()
         self.yButtonGroup = QtWidgets.QButtonGroup()
         layout = QtWidgets.QVBoxLayout()
@@ -142,6 +145,8 @@ class EquationListWidget(QtWidgets.QWidget):
 
     def addEquation(self, equationString, equationLambda):
         currentEquation = EquationWidget(equationString, equationLambda)
+        currentEquation.xButton.clicked.connect(lambda: self.setXEquation(equationString, equationLambda))
+        currentEquation.yButton.clicked.connect(lambda: self.setYEquation(equationString, equationLambda))
         currentEquation.deleteButton.clicked.connect(lambda: self.removeEquation(equationString))
         self.equationWidgets[equationString] = currentEquation
         self.xButtonGroup.addButton(currentEquation.xButton)
@@ -153,6 +158,10 @@ class EquationListWidget(QtWidgets.QWidget):
     def removeEquation(self, equationString):
         if equationString not in self.equationWidgets.keys():
             return
+        if equationString in self.yEquation:
+            self.yEquation = (None, None)
+        if equationString in self.xEquation:
+            self.xEquation = (None, None)
         currentEquation = self.equationWidgets[equationString]
         currentEquation.hide()
         layout = self.layout()
@@ -162,6 +171,7 @@ class EquationListWidget(QtWidgets.QWidget):
     def standardHideButtons(self):
         self.parametricLabelWidget.hide()
         self.standardLabelWidget.show()
+        self.xEquation = None
         for value in self.equationWidgets.values():
             value.xButton.hide()
 
@@ -170,6 +180,13 @@ class EquationListWidget(QtWidgets.QWidget):
         self.parametricLabelWidget.show()
         for value in self.equationWidgets.values():
             value.xButton.show()
+
+    def setXEquation(self, equationString, equationLambda):
+        self.xEquation = (equationString, equationLambda)
+
+    def setYEquation(self, equationString, equationLambda):
+        self.yEquation = (equationString, equationLambda)
+
 
 class StandardParametricWidget(QtWidgets.QWidget):
     def __init__(self):
@@ -192,7 +209,7 @@ class EquationListGroupBox(QtWidgets.QWidget):
         self.standardParametricWidget.parametricButton.clicked.connect(self.equationListWidget.parametricShowButtons)
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.equationListWidget)
-        layout.addWidget(self.standardParametricWidget,alignment=QtCore.Qt.AlignmentFlag.AlignBottom)
+        layout.addWidget(self.standardParametricWidget, alignment=QtCore.Qt.AlignmentFlag.AlignBottom)
         self.setLayout(layout)
         self.show()
 
@@ -208,12 +225,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
         # self.setCentralWidget(sc)
 
-
-        widget = InputGroupBox()
-
-
-        self.setCentralWidget(widget)
-
+        self.equationListGroupBox = EquationListGroupBox()
+        self.equationListGroupBox.addEquation("x+x", lambda x,y: x+x)
+        self.equationListGroupBox.addEquation("x+y", lambda x,y: x+y)
+        self.equationListGroupBox.addEquation("x+y^2", lambda x, y: x + y*y)
+        self.equationListGroupBox.addEquation("x+y*2", lambda x, y: x + y*2)
+        self.setCentralWidget(self.equationListGroupBox)
         self.show()
 
 app = QtWidgets.QApplication(sys.argv)
