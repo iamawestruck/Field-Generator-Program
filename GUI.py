@@ -5,8 +5,15 @@ import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import sys
+from enum import Enum
 import matplotlib
 matplotlib.use('Qt5Agg')
+
+
+class Variables(Enum):
+    X = 'x'
+    Y = 'y'
+    T = 't'
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -15,6 +22,76 @@ class MplCanvas(FigureCanvasQTAgg):
         self.fig=Figure(figsize=(width,height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         super(MplCanvas, self).__init__(self.fig)
+        self.setMinimumSize(200, 150)
+
+
+class VariableSpinWidget(QtWidgets.QWidget):
+    def __init__(self, variable):
+        super().__init__()
+
+        self.variableLabel = QtWidgets.QLabel(variable + ":")
+        self.inputBox = QtWidgets.QDoubleSpinBox()
+        self.inputBox.setValue(1)
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout = self.layout()
+        self.layout.addWidget(self.variableLabel, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.inputBox, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+
+
+class VariableRangeWidget(QtWidgets.QWidget):
+    def __init__(self, variable):
+        super().__init__()
+
+        self.variableLabel = QtWidgets.QLabel(variable.value + ":")
+
+        self.minInputBox = QtWidgets.QDoubleSpinBox()
+        self.minInputBox.setMinimum(-1000000000)
+        self.minInputBox.setMaximum(1000000000)
+        self.minInputBox.setValue(-10)
+
+        self.maxInputBox = QtWidgets.QDoubleSpinBox()
+        self.maxInputBox.setMinimum(-1000000000)
+        self.maxInputBox.setMaximum(1000000000)
+        self.maxInputBox.setValue(10)
+
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout = self.layout()
+        self.layout.addWidget(self.variableLabel, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.minInputBox, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(QtWidgets.QLabel("-"), alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.maxInputBox, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+
+
+class GraphsGroupBox(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setLayout(QtWidgets.QVBoxLayout())
+        self.layout = self.layout()
+
+        self.mainGraph = MplCanvas()
+        self.xParametricGraph = MplCanvas()
+        self.yParametricGraph = MplCanvas()
+        self.layout.addWidget(self.mainGraph)
+        self.layout.addWidget(self.xParametricGraph)
+        self.layout.addWidget(self.yParametricGraph)
+        self.xParametricGraph.hide()
+        self.yParametricGraph.hide()
+
+        self.xRange = VariableRangeWidget(Variables.X)
+        self.yRange = VariableRangeWidget(Variables.Y)
+        self.tRange = VariableRangeWidget(Variables.T)
+        self.layout.addWidget(self.xRange)
+        self.layout.addWidget(self.yRange)
+        self.layout.addWidget(self.tRange)
+        self.tRange.hide()
+
+        self.densityWidget = VariableSpinWidget("Density")
+        self.lineLengthWidget = VariableSpinWidget("Line Length")
+        self.layout.addWidget(self.densityWidget)
+        self.layout.addWidget(self.lineLengthWidget)
+
 
 class InputGroupBox(QtWidgets.QWidget):
     mathCommands = {
@@ -97,7 +174,7 @@ class EquationWidget(QtWidgets.QWidget):
         widgetLayout.addWidget(self.buttons, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
         widgetLayout.addWidget(self.equationLabel)
         widgetLayout.addWidget(self.deleteButton, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
-        # self.xButton.hide()
+        self.xButton.hide()
         self.setLayout(widgetLayout)
 
 
@@ -105,7 +182,7 @@ class EquationListWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.equationWidgets = {}
-        self.xEquation, self.yEquation = (None, None), (None, None)
+        self.xEquation, self.yEquation = ((None, None), (None, None))
         self.xButtonGroup = QtWidgets.QButtonGroup()
         self.yButtonGroup = QtWidgets.QButtonGroup()
         layout = QtWidgets.QVBoxLayout()
@@ -190,6 +267,44 @@ class EquationListGroupBox(QtWidgets.QWidget):
     def addEquation(self, equationString, equationLambda):
         self.equationListWidget.addEquation(equationString, equationLambda)
 
+class CentralWidget(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.equationListGroupBox = EquationListGroupBox()
+        self.graphsGroupBox = GraphsGroupBox()
+        self.inputGroupBox = InputGroupBox()
+
+        self.layout = QtWidgets.QGridLayout()
+
+        self.layout.addWidget(self.equationListGroupBox, 0, 0, 3, 1)
+        self.layout.addWidget(self.graphsGroupBox, 0, 1, 3, 1)
+        self.layout.addWidget(self.inputGroupBox, 3, 0, 1, 2)
+
+        self.equationListGroupBox.standardParametricWidget.parametricButton.clicked.connect(self.switchToParametric)
+        self.equationListGroupBox.standardParametricWidget.standardButton.clicked.connect(self.switchToStandard)
+
+        self.equationListGroupBox.addEquation("x+x", lambda x,y: x+x)
+
+        self.setLayout(self.layout)
+
+    def switchToParametric(self):
+        self.layout.addWidget(self.equationListGroupBox, 0, 0, 3, 1)
+        self.layout.addWidget(self.graphsGroupBox, 0, 1, 4, 1)
+        self.layout.addWidget(self.inputGroupBox, 3, 0, 2, 1)
+        self.graphsGroupBox.yParametricGraph.show()
+        self.graphsGroupBox.xParametricGraph.show()
+        self.graphsGroupBox.tRange.show()
+        self.equationListGroupBox.equationListWidget.parametricShowButtons()
+
+    def switchToStandard(self):
+        self.layout.addWidget(self.equationListGroupBox, 0, 0, 3, 1)
+        self.layout.addWidget(self.graphsGroupBox, 0, 1, 3, 1)
+        self.layout.addWidget(self.inputGroupBox, 3, 0, 1, 2)
+        self.graphsGroupBox.yParametricGraph.hide()
+        self.graphsGroupBox.xParametricGraph.hide()
+        self.graphsGroupBox.tRange.hide()
+        self.equationListGroupBox.equationListWidget.standardHideButtons()
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -199,12 +314,16 @@ class MainWindow(QtWidgets.QMainWindow):
         # sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
         # self.setCentralWidget(sc)
 
-        self.equationListGroupBox = EquationListGroupBox()
-        self.equationListGroupBox.addEquation("x+x", lambda x,y: x+x)
-        self.equationListGroupBox.addEquation("x+y", lambda x,y: x+y)
-        self.equationListGroupBox.addEquation("x+y^2", lambda x, y: x + y*y)
-        self.equationListGroupBox.addEquation("x+y*2", lambda x, y: x + y*2)
-        self.setCentralWidget(self.equationListGroupBox)
+        # self.equationListGroupBox = EquationListGroupBox()
+        # self.equationListGroupBox.addEquation("x+x", lambda x,y: x+x)
+        # self.equationListGroupBox.addEquation("x+y", lambda x,y: x+y)
+        # self.equationListGroupBox.addEquation("x+y^2", lambda x, y: x + y*y)
+        # self.equationListGroupBox.addEquation("x+y*2", lambda x, y: x + y*2)
+        # self.setCentralWidget(self.equationListGroupBox)
+
+        self.centralWidget = CentralWidget()
+        self.setCentralWidget(self.centralWidget)
+
         self.show()
 
 app = QtWidgets.QApplication(sys.argv)
