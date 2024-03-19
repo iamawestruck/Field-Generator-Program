@@ -56,7 +56,7 @@ def slopeField(func, xmin=-10, xmax=10, ymin=-10, ymax=10, density=1, lineLength
     U = (1 / (1 + slopes ** 2) ** 0.5) * np.ones(X.shape)
     V = (1 / (1 + slopes ** 2) ** 0.5) * slopes
 
-    fig = plt.figure(num=figureNumber)
+    fig = plt.figure()
     plt.title("Slope Field Generator")
     plt.xlabel("X")
     plt.ylabel("Y")
