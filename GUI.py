@@ -3,7 +3,7 @@ import types
 from PySide6 import QtCore, QtWidgets, QtGui
 import matplotlib.pyplot as plt
 import numpy as np
-
+from scipy.integrate import solve_ivp
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import sys
@@ -99,11 +99,16 @@ class ParametersGroupBox(QtWidgets.QWidget):
 
 class MplCanvas(FigureCanvasQTAgg):
     fig = None
+    graphClickedSignal = QtCore.Signal(float, float)
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         self.fig=Figure(figsize=(width,height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         super(MplCanvas, self).__init__(self.fig)
+        self.cid = self.fig.canvas.mpl_connect('button_press_event', self.onGraphPress)
 
+    def onGraphPress(self, event):
+        if event.xdata is not None and event.ydata is not None:
+            self.graphClickedSignal.emit(event.xdata, event.ydata)
 
 class GraphsGroupBox(QtWidgets.QWidget):
     def __init__(self):
@@ -112,6 +117,7 @@ class GraphsGroupBox(QtWidgets.QWidget):
         self.layout = self.layout()
 
         self.mainGraph = MplCanvas()
+        self.mainGraph.graphClickedSignal.connect(self.graphSolution)
         self.mainGraph.setMinimumSize(400, 250)
         self.xParametricGraph = MplCanvas()
         self.xParametricGraph.setMaximumSize(350,120)
@@ -162,7 +168,6 @@ class GraphsGroupBox(QtWidgets.QWidget):
 
     @QtCore.Slot(str)
     def removeEquation(self, equationString):
-        print(equationString, self.yEquation[0])
         if self.xEquation[0] == equationString:
             self.xEquation = (None, None)
             if not self.isStandard:
@@ -173,18 +178,28 @@ class GraphsGroupBox(QtWidgets.QWidget):
 
 
     def graphField(self):
+        self.clearGraphs()
         if self.isStandard:
             if self.yEquation[0] is not None:
-                self.graphStandard()
+                self.graphStandardField()
+        else:
+            if self.xEquation[0] is not None and self.yEquation[0] is not None:
+                self.graphParametricField()
+
+    @QtCore.Slot(float, float)
+    def graphSolution(self, xinit, yinit):
+        if self.isStandard:
+            if self.yEquation[0] is not None:
+                self.graphStandardSolution(xinit, yinit)
             else:
                 self.clearGraphs()
         else:
             if self.xEquation[0] is not None and self.yEquation[0] is not None:
-                self.graphParametric()
+                self.graphParametricSolution(xinit, yinit)
             else:
                 self.clearGraphs()
 
-    def graphStandard(self):
+    def graphStandardField(self):
         x = np.linspace(self.xmin, self.xmax, int(self.density * 20))
         y = np.linspace(self.ymin, self.ymax, int(self.density * 20))
         X, Y = np.meshgrid(x, y)
@@ -199,7 +214,7 @@ class GraphsGroupBox(QtWidgets.QWidget):
         self.mainGraph.axes.quiver(X, Y, U, V, headlength=0, headwidth=1, color='deepskyblue', scale=scale)
         self.mainGraph.draw()
 
-    def graphParametric(self):
+    def graphParametricField(self):
         x = np.linspace(self.xmin, self.xmax, int(self.density * 20))
         y = np.linspace(self.ymin, self.ymax, int(self.density * 20))
         X, Y = np.meshgrid(x, y)
@@ -212,6 +227,55 @@ class GraphsGroupBox(QtWidgets.QWidget):
         self.mainGraph.axes.quiver(X, Y, U, V, headwidth=5, color='deepskyblue', scale=scale)
         self.mainGraph.draw()
 
+    def graphStandardSolution(self, xinit, yinit):
+        xstep, ystep = (xinit, yinit)
+        X = []
+        Y = []
+        for i in range(2000000):
+            X.append(xstep)
+            Y.append(ystep)
+            try:
+                slope = self.yEquation[1](xstep, ystep)
+            except ZeroDivisionError:
+                break
+            ystep += slope * 0.0005
+            xstep += 0.0005
+            if xstep > self.xmax or xstep < self.xmin or ystep > self.ymax or ystep < self.ymin:
+                break
+        for i in range(2000000):
+            X.append(xstep)
+            Y.append(ystep)
+            try:
+                slope = self.yEquation[1](xstep, ystep)
+            except ZeroDivisionError:
+                break
+            ystep -= slope * 0.0005
+            xstep -= 0.0005
+            if xstep > self.xmax or xstep < self.xmin or ystep > self.ymax or ystep < self.ymin:
+                break
+        X = np.array(X)
+        Y = np.array(Y)
+        self.mainGraph.axes.plot(X, Y)
+        self.mainGraph.draw()
+
+    def graphParametricSolution(self, xinit, yinit):
+        times = np.linspace(self.tmin, self.tmax, 500)
+        solution = solve_ivp(lambda t, vars: [self.xEquation[1](vars[0], vars[1]), self.yEquation[1](vars[0], vars[1])], [self.tmin, self.tmax],
+                             [xinit, yinit], t_eval=times)
+        xvals = []
+        yvals = []
+        for i in range(len(solution.y[0])):
+            x = solution.y[0][i]
+            y = solution.y[1][i]
+            if x > self.xmin and x < self.xmax and y > self.ymin and y < self.ymax:
+                xvals.append(x)
+                yvals.append(y)
+        self.mainGraph.axes.plot(xvals, yvals)
+        self.xParametricGraph.axes.plot(solution.t, solution.y[0], label="x(t)")
+        self.yParametricGraph.axes.plot(solution.t, solution.y[1], label="y(t)")
+        self.mainGraph.draw()
+        self.xParametricGraph.draw()
+        self.yParametricGraph.draw()
 
     def clearGraphs(self):
         self.mainGraph.axes.cla()
@@ -220,6 +284,7 @@ class GraphsGroupBox(QtWidgets.QWidget):
         self.xParametricGraph.draw()
         self.yParametricGraph.axes.cla()
         self.yParametricGraph.draw()
+
 
 class InputErrorDialog(QtWidgets.QDialog):
     def __init__(self):
@@ -343,7 +408,7 @@ class InputGroupBox(QtWidgets.QWidget):
 
 
 class EquationWidget(QtWidgets.QWidget):
-    def __init__(self, equationString, equationLambda):
+    def __init__(self, equationString, equationLambda, isStandard):
         super().__init__()
         self.equationString = equationString
         self.equationLambda = equationLambda
@@ -361,7 +426,8 @@ class EquationWidget(QtWidgets.QWidget):
         widgetLayout.addWidget(self.buttons, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
         widgetLayout.addWidget(self.equationLabel)
         widgetLayout.addWidget(self.deleteButton, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
-        self.xButton.hide()
+        if isStandard:
+            self.xButton.hide()
         self.setLayout(widgetLayout)
 
 
@@ -379,6 +445,7 @@ class EquationListWidget(QtWidgets.QWidget):
         self.standardLabelWidget = QtWidgets.QLabel(" dy/dx ")
         self.parametricLabelWidget = QtWidgets.QLabel(" dx/dt  dy/dt ")
         self.parametricLabelWidget.hide()
+        self.isStandard = True
         layout.addWidget(self.standardLabelWidget,
                          alignment=QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.parametricLabelWidget, alignment=QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft)
@@ -388,7 +455,7 @@ class EquationListWidget(QtWidgets.QWidget):
     def addEquation(self, equationString, equationLambda):
         if equationString in self.equationWidgets.keys():
             return
-        currentEquation = EquationWidget(equationString, equationLambda)
+        currentEquation = EquationWidget(equationString, equationLambda, self.isStandard)
         currentEquation.xButton.clicked.connect(lambda: self.setXEquation(equationString, equationLambda))
         currentEquation.yButton.clicked.connect(lambda: self.setYEquation(equationString, equationLambda))
         currentEquation.deleteButton.clicked.connect(lambda: self.removeEquation(equationString))
@@ -402,11 +469,12 @@ class EquationListWidget(QtWidgets.QWidget):
     def removeEquation(self, equationString):
         if equationString not in self.equationWidgets.keys():
             return
-        currentEquation = self.equationWidgets[equationString]
+        currentEquation = self.equationWidgets.pop(equationString)
         currentEquation.hide()
         layout = self.layout()
         layout.removeWidget(currentEquation)
         self.setLayout(layout)
+        self.removeEquationSignal.emit(equationString)
 
     def standardHideButtons(self):
         self.parametricLabelWidget.hide()
@@ -454,9 +522,6 @@ class EquationListGroupBox(QtWidgets.QWidget):
         self.setLayout(layout)
         self.show()
 
-    def addEquation(self, equationString, equationLambda):
-        self.equationListWidget.addEquation(equationString, equationLambda)
-
 class CentralWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -482,8 +547,8 @@ class CentralWidget(QtWidgets.QWidget):
 
         self.parametersGroupBox.parametersSignal.connect(self.graphsGroupBox.updateParameters)
 
-        self.equationListGroupBox.addEquation("x+x", lambda x,y: x+x)
-        self.equationListGroupBox.addEquation("x+y", lambda x,y: x+y)
+        self.equationListGroupBox.equationListWidget.addEquation("x+x", lambda x,y: x+x)
+        self.equationListGroupBox.equationListWidget.addEquation("x+y", lambda x,y: x+y)
 
         self.setLayout(self.layout)
 
@@ -497,6 +562,7 @@ class CentralWidget(QtWidgets.QWidget):
         self.parametersGroupBox.tRange.show()
         self.equationListGroupBox.equationListWidget.parametricShowButtons()
         self.graphsGroupBox.isStandard = False
+        self.equationListGroupBox.equationListWidget.isStandard = False
         self.graphsGroupBox.graphField()
 
 
@@ -510,13 +576,14 @@ class CentralWidget(QtWidgets.QWidget):
         self.parametersGroupBox.tRange.hide()
         self.equationListGroupBox.equationListWidget.standardHideButtons()
         self.graphsGroupBox.isStandard = True
+        self.equationListGroupBox.equationListWidget.isStandard = True
         self.graphsGroupBox.graphField()
 
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-
+        self.setWindowTitle("Field Generator")
         # sc = MplCanvas(self, width=5, height=4, dpi=100)
         # sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
         # self.setCentralWidget(sc)
