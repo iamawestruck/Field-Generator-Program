@@ -12,7 +12,7 @@ def _parseFunc(func, x, y):
     _parseFunc evaluates a string, specifies the x and y in the equation.
     Using eval(), the string returns values from the function.
     """
-    return eval(func, {}, {
+    lambdaExpression = lambda x, y: eval(func, {}, {
         "x": x,
         "y": y,
         "e": np.e,
@@ -24,6 +24,14 @@ def _parseFunc(func, x, y):
         "arctan": np.arctan,
         "pi": np.pi
     })
+
+    try:
+        if type(lambdaExpression(1.0, 1.0)) is float:
+            return lambdaExpression
+        else:
+            pass
+    except Exception as err:
+        pass
 
 
 def slopeField(func, xmin=-10, xmax=10, ymin=-10, ymax=10, density=1, lineLength=None, figureNumber=None):
