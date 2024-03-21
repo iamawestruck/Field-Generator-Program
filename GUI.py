@@ -16,17 +16,6 @@ class Variables(Enum):
     X = 'x'
     Y = 'y'
     T = 't'
-
-
-class MplCanvas(FigureCanvasQTAgg):
-    fig = None
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        self.fig=Figure(figsize=(width,height), dpi=dpi)
-        self.axes = self.fig.add_subplot(111)
-        super(MplCanvas, self).__init__(self.fig)
-        self.setMinimumSize(200, 150)
-
-
 class VariableSpinWidget(QtWidgets.QWidget):
     def __init__(self, variable):
         super().__init__()
@@ -66,37 +55,101 @@ class VariableRangeWidget(QtWidgets.QWidget):
         self.layout.addWidget(self.maxInputBox, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
 
 
-class GraphsGroupBox(QtWidgets.QWidget):
+class ParametersGroupBox(QtWidgets.QWidget):
+    parametersSignal = QtCore.Signal(float, float, float, float, float, float, float, float)
+
     def __init__(self):
         super().__init__()
         self.setLayout(QtWidgets.QVBoxLayout())
         self.layout = self.layout()
 
-        self.mainGraph = MplCanvas()
-        self.xParametricGraph = MplCanvas()
-        self.yParametricGraph = MplCanvas()
-        self.layout.addWidget(self.mainGraph)
-        self.layout.addWidget(self.xParametricGraph)
-        self.layout.addWidget(self.yParametricGraph)
-        self.xParametricGraph.hide()
-        self.yParametricGraph.hide()
-
         self.xRange = VariableRangeWidget(Variables.X)
         self.yRange = VariableRangeWidget(Variables.Y)
         self.tRange = VariableRangeWidget(Variables.T)
+        self.xRange.minInputBox.valueChanged.connect(self.updateParameters)
+        self.xRange.maxInputBox.valueChanged.connect(self.updateParameters)
+        self.yRange.minInputBox.valueChanged.connect(self.updateParameters)
+        self.yRange.maxInputBox.valueChanged.connect(self.updateParameters)
+        self.tRange.minInputBox.valueChanged.connect(self.updateParameters)
+        self.tRange.maxInputBox.valueChanged.connect(self.updateParameters)
         self.layout.addWidget(self.xRange)
         self.layout.addWidget(self.yRange)
         self.layout.addWidget(self.tRange)
         self.tRange.hide()
 
         self.densityWidget = VariableSpinWidget("Density")
+        self.densityWidget.inputBox.valueChanged.connect(self.updateParameters)
         self.lineLengthWidget = VariableSpinWidget("Line Length")
+        self.lineLengthWidget.inputBox.valueChanged.connect(self.updateParameters)
+
         self.layout.addWidget(self.densityWidget)
         self.layout.addWidget(self.lineLengthWidget)
+
+    def updateParameters(self):
+        xmin = float(self.xRange.minInputBox.text())
+        xmax = float(self.xRange.maxInputBox.text())
+        ymin = float(self.yRange.minInputBox.text())
+        ymax = float(self.yRange.maxInputBox.text())
+        tmin = float(self.tRange.minInputBox.text())
+        tmax = float(self.tRange.maxInputBox.text())
+        density = float(self.densityWidget.inputBox.text())
+        lineLength = float(self.lineLengthWidget.inputBox.text())
+        self.parametersSignal.emit(xmin, xmax, ymin, ymax, tmin, tmax, density, lineLength)
+
+
+class MplCanvas(FigureCanvasQTAgg):
+    fig = None
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        self.fig=Figure(figsize=(width,height), dpi=dpi)
+        self.axes = self.fig.add_subplot(111)
+        super(MplCanvas, self).__init__(self.fig)
+
+
+class GraphsGroupBox(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setLayout(QtWidgets.QGridLayout())
+        self.layout = self.layout()
+
+        self.mainGraph = MplCanvas()
+        self.mainGraph.setMinimumSize(400, 250)
+        self.xParametricGraph = MplCanvas()
+        self.xParametricGraph.setMaximumSize(350,120)
+        self.xParametricGraph.setMinimumSize(350,120)
+        self.yParametricGraph = MplCanvas()
+        self.yParametricGraph.setMaximumSize(350,120)
+        self.yParametricGraph.setMinimumSize(350,120)
+
+        self.layout.addWidget(self.mainGraph, 0, 0, 2, 2)
+        self.layout.addWidget(self.xParametricGraph, 2, 0, 1, 1)
+        self.layout.addWidget(self.yParametricGraph, 2, 1, 1, 1)
+        self.xParametricGraph.hide()
+        self.yParametricGraph.hide()
 
         self.xEquation = (None, None)
         self.yEquation = (None, None)
         self.isStandard = True
+
+        self.xmin = -10
+        self.xmax = 10
+        self.ymin = -10
+        self.ymax = 10
+        self.tmin = -10
+        self.tmax = 10
+        self.density = 1
+        self.lineLength = 1
+
+    @QtCore.Slot(float, float, float, float, float, float, float, float)
+    def updateParameters(self, xmin, xmax, ymin, ymax, tmin, tmax, density, lineLength):
+        self.xmin = xmin
+        self.xmax = xmax
+        self.ymin = ymin
+        self.ymax = ymax
+        self.tmin = tmin
+        self.tmax = tmax
+        self.density = density
+        self.lineLength = lineLength
+        self.graphField()
 
     @QtCore.Slot(Variables, str, types.LambdaType)
     def setEquation(self, variable, equationString, equationLambda):
@@ -104,7 +157,7 @@ class GraphsGroupBox(QtWidgets.QWidget):
             self.xEquation = (equationString, equationLambda)
         elif variable == Variables.Y:
             self.yEquation = (equationString, equationLambda)
-        self.graph()
+        self.graphField()
 
 
     @QtCore.Slot(str)
@@ -116,10 +169,10 @@ class GraphsGroupBox(QtWidgets.QWidget):
                 self.clearGraphs()
         elif self.yEquation[0] == equationString:
             self.yEquation = (None, None)
-        self.graph()
+        self.graphField()
 
 
-    def graph(self):
+    def graphField(self):
         if self.isStandard:
             if self.yEquation[0] is not None:
                 self.graphStandard()
@@ -132,15 +185,8 @@ class GraphsGroupBox(QtWidgets.QWidget):
                 self.clearGraphs()
 
     def graphStandard(self):
-        xmin = float(self.xRange.minInputBox.text())
-        xmax = float(self.xRange.maxInputBox.text())
-        ymin = float(self.yRange.minInputBox.text())
-        ymax = float(self.yRange.maxInputBox.text())
-        density = float(self.densityWidget.inputBox.text())
-        lineLength = float(self.lineLengthWidget.inputBox.text())
-
-        x = np.linspace(xmin, xmax, int(density * 20))
-        y = np.linspace(ymin, ymax, int(density * 20))
+        x = np.linspace(self.xmin, self.xmax, int(self.density * 20))
+        y = np.linspace(self.ymin, self.ymax, int(self.density * 20))
         X, Y = np.meshgrid(x, y)
 
         slopes = self.yEquation[1](X, Y)
@@ -148,27 +194,20 @@ class GraphsGroupBox(QtWidgets.QWidget):
         V = (1 / (1 + slopes ** 2) ** 0.5) * slopes
 
         self.mainGraph.axes.set_title("Slope Field Generator")
-        scale = 50 / lineLength
+        scale = 50 / self.lineLength
         self.mainGraph.axes.cla()
         self.mainGraph.axes.quiver(X, Y, U, V, headlength=0, headwidth=1, color='deepskyblue', scale=scale)
         self.mainGraph.draw()
 
     def graphParametric(self):
-        xmin = float(self.xRange.minInputBox.text())
-        xmax = float(self.xRange.maxInputBox.text())
-        ymin = float(self.yRange.minInputBox.text())
-        ymax = float(self.yRange.maxInputBox.text())
-        density = float(self.densityWidget.inputBox.text())
-        lineLength = float(self.lineLengthWidget.inputBox.text())
-
-        x = np.linspace(xmin, xmax, int(density * 20))
-        y = np.linspace(ymin, ymax, int(density * 20))
+        x = np.linspace(self.xmin, self.xmax, int(self.density * 20))
+        y = np.linspace(self.ymin, self.ymax, int(self.density * 20))
         X, Y = np.meshgrid(x, y)
         U = self.xEquation[1](X, Y)
         V = self.yEquation[1](X, Y)
 
         self.mainGraph.axes.set_title("Vector Field Generator")
-        scale = 50 / lineLength
+        scale = 50 / self.lineLength
         self.mainGraph.axes.cla()
         self.mainGraph.axes.quiver(X, Y, U, V, headwidth=5, color='deepskyblue', scale=scale)
         self.mainGraph.draw()
@@ -424,12 +463,14 @@ class CentralWidget(QtWidgets.QWidget):
         self.equationListGroupBox = EquationListGroupBox()
         self.graphsGroupBox = GraphsGroupBox()
         self.inputGroupBox = InputGroupBox()
+        self.parametersGroupBox = ParametersGroupBox()
 
         self.layout = QtWidgets.QGridLayout()
 
         self.layout.addWidget(self.equationListGroupBox, 0, 0, 3, 1)
-        self.layout.addWidget(self.graphsGroupBox, 0, 1, 3, 1)
+        self.layout.addWidget(self.graphsGroupBox, 0, 1, 3, 2)
         self.layout.addWidget(self.inputGroupBox, 3, 0, 1, 2)
+        self.layout.addWidget(self.parametersGroupBox, 3, 2, 1, 1)
 
         self.equationListGroupBox.standardParametricWidget.parametricButton.clicked.connect(self.switchToParametric)
         self.equationListGroupBox.standardParametricWidget.standardButton.clicked.connect(self.switchToStandard)
@@ -439,6 +480,8 @@ class CentralWidget(QtWidgets.QWidget):
 
         self.inputGroupBox.lambdaEquationSignal.connect(self.equationListGroupBox.equationListWidget.addEquation)
 
+        self.parametersGroupBox.parametersSignal.connect(self.graphsGroupBox.updateParameters)
+
         self.equationListGroupBox.addEquation("x+x", lambda x,y: x+x)
         self.equationListGroupBox.addEquation("x+y", lambda x,y: x+y)
 
@@ -446,26 +489,28 @@ class CentralWidget(QtWidgets.QWidget):
 
     def switchToParametric(self):
         self.layout.addWidget(self.equationListGroupBox, 0, 0, 3, 1)
-        self.layout.addWidget(self.graphsGroupBox, 0, 1, 4, 2)
-        self.layout.addWidget(self.inputGroupBox, 3, 0, 1, 1)
+        self.layout.addWidget(self.graphsGroupBox, 0, 1, 3, 2)
+        self.layout.addWidget(self.inputGroupBox, 3, 0, 1, 2)
+        self.layout.addWidget(self.parametersGroupBox, 3, 2, 1, 1)
         self.graphsGroupBox.yParametricGraph.show()
         self.graphsGroupBox.xParametricGraph.show()
-        self.graphsGroupBox.tRange.show()
+        self.parametersGroupBox.tRange.show()
         self.equationListGroupBox.equationListWidget.parametricShowButtons()
         self.graphsGroupBox.isStandard = False
-        self.graphsGroupBox.graph()
+        self.graphsGroupBox.graphField()
 
 
     def switchToStandard(self):
         self.layout.addWidget(self.equationListGroupBox, 0, 0, 3, 1)
         self.layout.addWidget(self.graphsGroupBox, 0, 1, 3, 2)
-        self.layout.addWidget(self.inputGroupBox, 3, 0, 1, 3)
+        self.layout.addWidget(self.inputGroupBox, 3, 0, 1, 2)
+        self.layout.addWidget(self.parametersGroupBox, 3, 2, 1, 1)
         self.graphsGroupBox.yParametricGraph.hide()
         self.graphsGroupBox.xParametricGraph.hide()
-        self.graphsGroupBox.tRange.hide()
+        self.parametersGroupBox.tRange.hide()
         self.equationListGroupBox.equationListWidget.standardHideButtons()
         self.graphsGroupBox.isStandard = True
-        self.graphsGroupBox.graph()
+        self.graphsGroupBox.graphField()
 
 
 class MainWindow(QtWidgets.QMainWindow):
