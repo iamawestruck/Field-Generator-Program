@@ -23,6 +23,8 @@ class VariableSpinWidget(QtWidgets.QWidget):
         self.variableLabel = QtWidgets.QLabel(variable + ":")
         self.inputBox = QtWidgets.QDoubleSpinBox()
         self.inputBox.setValue(1)
+        self.inputBox.setMinimum(0.01)
+        self.inputBox.setSingleStep(0.1)
 
         self.setLayout(QtWidgets.QHBoxLayout())
         self.layout = self.layout()
@@ -118,17 +120,18 @@ class GraphsGroupBox(QtWidgets.QWidget):
 
         self.mainGraph = MplCanvas()
         self.mainGraph.graphClickedSignal.connect(self.graphSolution)
-        self.mainGraph.setMinimumSize(400, 250)
+        self.mainGraph.setMinimumSize(600, 600)
+        self.mainGraph.setMaximumSize(600, 600)
         self.xParametricGraph = MplCanvas()
-        self.xParametricGraph.setMaximumSize(350,120)
-        self.xParametricGraph.setMinimumSize(350,120)
+        self.xParametricGraph.setMaximumSize(350,295)
+        self.xParametricGraph.setMinimumSize(350,295)
         self.yParametricGraph = MplCanvas()
-        self.yParametricGraph.setMaximumSize(350,120)
-        self.yParametricGraph.setMinimumSize(350,120)
+        self.yParametricGraph.setMaximumSize(350,295)
+        self.yParametricGraph.setMinimumSize(350,295)
 
-        self.layout.addWidget(self.mainGraph, 0, 0, 2, 2)
-        self.layout.addWidget(self.xParametricGraph, 2, 0, 1, 1)
-        self.layout.addWidget(self.yParametricGraph, 2, 1, 1, 1)
+        self.layout.addWidget(self.mainGraph, 0, 0, 2, 1)
+        self.layout.addWidget(self.xParametricGraph, 0, 1, 1, 1)
+        self.layout.addWidget(self.yParametricGraph, 1, 1, 1, 1)
         self.xParametricGraph.hide()
         self.yParametricGraph.hide()
 
@@ -199,6 +202,11 @@ class GraphsGroupBox(QtWidgets.QWidget):
             else:
                 self.clearGraphs()
 
+    def setTitle(self, title):
+        self.mainGraph.axes.set_title(title)
+        self.mainGraph.axes.draw()
+
+
     def graphStandardField(self):
         x = np.linspace(self.xmin, self.xmax, int(self.density * 20))
         y = np.linspace(self.ymin, self.ymax, int(self.density * 20))
@@ -208,9 +216,12 @@ class GraphsGroupBox(QtWidgets.QWidget):
         U = (1 / (1 + slopes ** 2) ** 0.5) * np.ones(X.shape)
         V = (1 / (1 + slopes ** 2) ** 0.5) * slopes
 
-        self.mainGraph.axes.set_title("Slope Field Generator")
+
         scale = 50 / self.lineLength
         self.mainGraph.axes.cla()
+        self.mainGraph.axes.set_title("Slope Field Generator")
+        self.mainGraph.axes.set_xlabel("x")
+        self.mainGraph.axes.set_ylabel("y")
         self.mainGraph.axes.quiver(X, Y, U, V, headlength=0, headwidth=1, color='deepskyblue', scale=scale)
         self.mainGraph.draw()
 
@@ -221,11 +232,23 @@ class GraphsGroupBox(QtWidgets.QWidget):
         U = self.xEquation[1](X, Y)
         V = self.yEquation[1](X, Y)
 
-        self.mainGraph.axes.set_title("Vector Field Generator")
+
         scale = 50 / self.lineLength
         self.mainGraph.axes.cla()
+        self.mainGraph.axes.set_title("Vector Field Generator")
+        self.mainGraph.axes.set_xlabel("x")
+        self.mainGraph.axes.set_ylabel("y")
         self.mainGraph.axes.quiver(X, Y, U, V, headwidth=5, color='deepskyblue', scale=scale)
         self.mainGraph.draw()
+
+        self.xParametricGraph.axes.set_xlabel("t")
+        self.xParametricGraph.axes.set_ylabel("x")
+        self.xParametricGraph.draw()
+
+        self.yParametricGraph.axes.set_xlabel("t")
+        self.yParametricGraph.axes.set_ylabel("y")
+        self.yParametricGraph.draw()
+
 
     def graphStandardSolution(self, xinit, yinit):
         xstep, ystep = (xinit, yinit)
@@ -303,7 +326,7 @@ class InputGroupBox(QtWidgets.QWidget):
     button = []
     arrow = 0
     mathCommands = {
-        0: "pi",
+        0: "π",
         1: "sin",
         2: "cos",
         3: "e",
@@ -363,7 +386,7 @@ class InputGroupBox(QtWidgets.QWidget):
         self.inputBox.returnPressed.connect(lambda: self.enterData())
 
     def addText(self, text):
-        self.inputBox.insert(self.mathCommands[text])
+        self.inputBox.insert(self.mathCommands[text + (8 * self.arrow)])
 
     def shiftCommands(self, movement):
 
@@ -383,6 +406,8 @@ class InputGroupBox(QtWidgets.QWidget):
     def enterData(self):
         func = self.inputBox.text()
         lambdaExpression = lambda x, y: eval(func, {}, {
+            "t": x,
+            "P": y,
             "x": x,
             "y": y,
             "e": np.e,
@@ -392,7 +417,7 @@ class InputGroupBox(QtWidgets.QWidget):
             "arcsin": np.arcsin,
             "arccos": np.arccos,
             "arctan": np.arctan,
-            "pi": np.pi
+            "π": np.pi
         })
 
         try:
@@ -422,6 +447,8 @@ class EquationWidget(QtWidgets.QWidget):
         self.equationLabel = QtWidgets.QLabel()
         self.equationLabel.setText(equationString)
         self.deleteButton = QtWidgets.QPushButton("-")
+        self.setMinimumSize(200,75)
+
         widgetLayout = QtWidgets.QHBoxLayout()
         widgetLayout.addWidget(self.buttons, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
         widgetLayout.addWidget(self.equationLabel)
@@ -441,14 +468,9 @@ class EquationListWidget(QtWidgets.QWidget):
         self.equationWidgets = {}
         self.xButtonGroup = QtWidgets.QButtonGroup()
         self.yButtonGroup = QtWidgets.QButtonGroup()
-        layout = QtWidgets.QVBoxLayout()
-        self.standardLabelWidget = QtWidgets.QLabel(" dy/dx ")
-        self.parametricLabelWidget = QtWidgets.QLabel(" dx/dt  dy/dt ")
-        self.parametricLabelWidget.hide()
         self.isStandard = True
-        layout.addWidget(self.standardLabelWidget,
-                         alignment=QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self.parametricLabelWidget, alignment=QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft)
+        layout = QtWidgets.QVBoxLayout()
+
         self.setLayout(layout)
 
     @QtCore.Slot(str, types.LambdaType)
@@ -477,15 +499,13 @@ class EquationListWidget(QtWidgets.QWidget):
         self.removeEquationSignal.emit(equationString)
 
     def standardHideButtons(self):
-        self.parametricLabelWidget.hide()
-        self.standardLabelWidget.show()
+        self.isStandard = True
         self.xEquation = None
         for value in self.equationWidgets.values():
             value.xButton.hide()
 
     def parametricShowButtons(self):
-        self.standardLabelWidget.hide()
-        self.parametricLabelWidget.show()
+        self.isStandard = False
         for value in self.equationWidgets.values():
             value.xButton.show()
 
@@ -512,20 +532,45 @@ class StandardParametricWidget(QtWidgets.QWidget):
 class EquationListGroupBox(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+        self.standardLabelWidget = QtWidgets.QLabel("    dy/dx ")
+        self.parametricLabelWidget = QtWidgets.QLabel("    dx/dt  dy/dt ")
+        self.parametricLabelWidget.hide()
+
         self.equationListWidget = EquationListWidget()
+        self.equationListScroll = QtWidgets.QScrollArea()
+
+        self.equationListScroll.setWidget(self.equationListWidget)
+        self.equationListScroll.setWidgetResizable(True)
         self.standardParametricWidget = StandardParametricWidget()
         self.standardParametricWidget.standardButton.clicked.connect(self.equationListWidget.standardHideButtons)
         self.standardParametricWidget.parametricButton.clicked.connect(self.equationListWidget.parametricShowButtons)
+
         layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.equationListWidget)
+        layout.addWidget(self.standardLabelWidget,
+                         alignment=QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self.parametricLabelWidget,
+                         alignment=QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self.equationListScroll)
         layout.addWidget(self.standardParametricWidget, alignment=QtCore.Qt.AlignmentFlag.AlignBottom)
+
         self.setLayout(layout)
         self.show()
+
+    def standardHideButtons(self):
+        self.parametricLabelWidget.hide()
+        self.standardLabelWidget.show()
+        self.equationListWidget.standardHideButtons()
+
+    def parametricShowButtons(self):
+        self.standardLabelWidget.hide()
+        self.parametricLabelWidget.show()
+        self.equationListWidget.parametricShowButtons()
 
 class CentralWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.equationListGroupBox = EquationListGroupBox()
+        # self.equationListGroupBox.setMinimumSize(500, 300)
         self.graphsGroupBox = GraphsGroupBox()
         self.inputGroupBox = InputGroupBox()
         self.parametersGroupBox = ParametersGroupBox()
@@ -560,9 +605,8 @@ class CentralWidget(QtWidgets.QWidget):
         self.graphsGroupBox.yParametricGraph.show()
         self.graphsGroupBox.xParametricGraph.show()
         self.parametersGroupBox.tRange.show()
-        self.equationListGroupBox.equationListWidget.parametricShowButtons()
+        self.equationListGroupBox.parametricShowButtons()
         self.graphsGroupBox.isStandard = False
-        self.equationListGroupBox.equationListWidget.isStandard = False
         self.graphsGroupBox.graphField()
 
 
@@ -574,9 +618,8 @@ class CentralWidget(QtWidgets.QWidget):
         self.graphsGroupBox.yParametricGraph.hide()
         self.graphsGroupBox.xParametricGraph.hide()
         self.parametersGroupBox.tRange.hide()
-        self.equationListGroupBox.equationListWidget.standardHideButtons()
+        self.equationListGroupBox.standardHideButtons()
         self.graphsGroupBox.isStandard = True
-        self.equationListGroupBox.equationListWidget.isStandard = True
         self.graphsGroupBox.graphField()
 
 
