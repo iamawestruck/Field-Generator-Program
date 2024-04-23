@@ -160,6 +160,21 @@ class GraphsGroupBox(QtWidgets.QWidget):
         self.density = 1
         self.lineLength = 1
 
+    def saveToFile(self):
+        self.saveDialog = QtWidgets.QFileDialog()
+        self.saveDialog.setFileMode(QtWidgets.QFileDialog.FileMode.Directory)
+        try:
+            self.fileName = self.saveDialog.getSaveFileName(self, "Save Figure(s)", filter="Image files (*.jpg)", selectedFilter="Image files (*.jpg)")
+        except:
+            return
+        if self.isStandard:
+            self.mainGraph.print_jpg(self.fileName[0])
+        else:
+            self.mainGraph.print_jpg(self.fileName[0])
+            self.xParametricGraph.print_jpg(self.fileName[0].split(".")[0] + "_x_graph.jpg")
+            self.yParametricGraph.print_jpg(self.fileName[0].split(".")[0] + "_y_graph.jpg")
+
+
     def clearSolutions(self):
         self.solutionPoints = []
         self.clearGraphs()
@@ -240,9 +255,10 @@ class GraphsGroupBox(QtWidgets.QWidget):
         x = np.linspace(self.xmin, self.xmax, int(self.density * 20))
         y = np.linspace(self.ymin, self.ymax, int(self.density * 20))
         X, Y = np.meshgrid(x, y)
+        ratio = (self.ymax-self.ymin)/(self.xmax-self.xmin)
 
         slopes = self.yEquation[1](X, Y)
-        U = (1 / (1 + slopes ** 2) ** 0.5) * np.ones(X.shape)
+        U = (1 / (1 + slopes ** 2) ** 0.5) * np.ones(X.shape) * ratio
         V = (1 / (1 + slopes ** 2) ** 0.5) * slopes
 
         scale = 50 / self.lineLength
@@ -256,7 +272,9 @@ class GraphsGroupBox(QtWidgets.QWidget):
         x = np.linspace(self.xmin, self.xmax, int(self.density * 20))
         y = np.linspace(self.ymin, self.ymax, int(self.density * 20))
         X, Y = np.meshgrid(x, y)
-        U = self.xEquation[1](X, Y)
+        ratio = (self.ymax-self.ymin)/(self.xmax-self.xmin)
+
+        U = self.xEquation[1](X, Y) * ratio
         V = self.yEquation[1](X, Y)
 
         scale = 50 / self.lineLength
@@ -671,7 +689,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.centralWidget = CentralWidget()
         self.setCentralWidget(self.centralWidget)
 
+        self.createMenuBar()
+
         self.show()
+
+    def createMenuBar(self):
+        self.menuBar = QtWidgets.QMenuBar()
+        self.saveMenu = QtWidgets.QMenu("&File")
+        self.saveAction = QtGui.QAction("Save")
+        self.saveAction.setShortcut(QtGui.QKeySequence("Ctrl+s"))
+        self.saveAction.triggered.connect(self.centralWidget.graphsGroupBox.saveToFile)
+        self.saveMenu.addAction(self.saveAction)
+        self.menuBar.addMenu(self.saveMenu)
+        self.setMenuBar(self.menuBar)
+
+
 
 
 app = QtWidgets.QApplication(sys.argv)
