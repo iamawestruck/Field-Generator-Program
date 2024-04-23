@@ -95,10 +95,31 @@ class ParametersGroupBox(QtWidgets.QWidget):
         self.tRange.inputBox.setSingleStep(1)
 
     def updateParameters(self):
-        xmin = float(self.xRange.minInputBox.text())
-        xmax = float(self.xRange.maxInputBox.text())
-        ymin = float(self.yRange.minInputBox.text())
-        ymax = float(self.yRange.maxInputBox.text())
+
+        if float(self.xRange.minInputBox.text()) >= float(self.xRange.maxInputBox.text()):
+            self.xRange.minInputBox.setValue(float(self.xRange.maxInputBox.text())-1)
+            xmin = float(self.xRange.minInputBox.text())-1
+        else:
+            xmin = float(self.xRange.minInputBox.text())
+
+        if float(self.xRange.maxInputBox.text()) <= float(self.xRange.minInputBox.text()):
+            self.xRange.maxInputBox.setValue(float(self.xRange.minInputBox.text())+1)
+            xmax = float(self.xRange.maxInputBox.text())+1
+        else:
+            xmax = float(self.xRange.maxInputBox.text())
+
+        if float(self.yRange.minInputBox.text()) >= float(self.yRange.maxInputBox.text()):
+            self.yRange.minInputBox.setValue(float(self.yRange.maxInputBox.text()) - 1)
+            ymin = float(self.yRange.minInputBox.text()) - 1
+        else:
+            ymin = float(self.yRange.minInputBox.text())
+
+        if float(self.yRange.maxInputBox.text()) <= float(self.yRange.minInputBox.text()):
+            self.yRange.maxInputBox.setValue(float(self.yRange.minInputBox.text()) + 1)
+            ymax = float(self.yRange.maxInputBox.text()) + 1
+        else:
+            ymax = float(self.yRange.maxInputBox.text())
+
         tmax = float(self.tRange.inputBox.text())
         density = float(self.densityWidget.inputBox.text())
         lineLength = float(self.lineLengthWidget.inputBox.text())
@@ -236,7 +257,7 @@ class GraphsGroupBox(QtWidgets.QWidget):
                 self.graphStandardSolution(xinit, yinit)
                 if (xinit, yinit) not in self.solutionPoints:
                     self.solutionPoints.append((xinit, yinit))
-                print(self.solutionPoints)
+                #print(self.solutionPoints)
             else:
                 self.clearGraphs()
         else:
@@ -646,8 +667,9 @@ class CentralWidget(QtWidgets.QWidget):
 
         self.parametersGroupBox.parametersSignal.connect(self.graphsGroupBox.updateParameters)
 
-        self.equationListGroupBox.equationListWidget.addEquation("x+x", lambda x, y: x + x)
-        self.equationListGroupBox.equationListWidget.addEquation("x+y", lambda x, y: x + y)
+        self.equationListGroupBox.equationListWidget.addEquation("-y+xy", lambda x, y: -y+x*y)
+        #self.equationListGroupBox.equationListWidget.addEquation("(x-tan(x-y)/cos(y)^2-sin(x)^3", lambda x, y: (x-np.tan(x-y))/np.cos(y)**2-np.sin(x)**3)
+        self.equationListGroupBox.equationListWidget.addEquation("x-xy", lambda x, y: x-x*y)
 
         self.setLayout(self.layout)
 
